@@ -20,7 +20,7 @@ git push
 ```jsx
 {process.env.NODE_ENV === "development" && (
   <Script
-    src="//cdn.jsdelivr.net/gh/<your-user>/react-scan-banihani@main/cdn/react-scan-banihani.js"
+    src="//cdn.jsdelivr.net/gh/ahmedbanihanibh/react-scan-banihani@main/cdn/react-scan-banihani.js"
     crossOrigin="anonymous"
     strategy="beforeInteractive"
   />
