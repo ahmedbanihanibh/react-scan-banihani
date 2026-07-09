@@ -15,6 +15,18 @@ git add cdn/react-scan-banihani.js && git commit -m "chore: update cdn bundle"
 git push
 ```
 
+## Cut an immutable production release
+
+```bash
+pnpm release:cdn 0.5.8   # build + commit + tag v0.5.8-banihani + push main & tag
+```
+
+Then pin the tag in prod (permanently cached, never stale):
+
+```
+//cdn.jsdelivr.net/gh/ahmedbanihanibh/react-scan-banihani@v0.5.8-banihani/cdn/react-scan-banihani.js
+```
+
 ## Use it in an app
 
 ```jsx

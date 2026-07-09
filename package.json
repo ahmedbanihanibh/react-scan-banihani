@@ -4,6 +4,7 @@
   "scripts": {
     "build": "turbo run build --filter=react-scan --filter=@react-scan/extension --filter=@react-scan/vite-plugin-react-scan --filter=@react-scan/website",
     "build:cdn": "pnpm --filter react-scan build && node -e \"require('fs').copyFileSync('packages/scan/dist/auto.global.js','cdn/react-scan-banihani.js')\"",
+    "release:cdn": "node scripts/release-cdn.mjs",
     "dev": "turbo run dev --filter=react-scan --filter=@react-scan/kitchen-sink",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
