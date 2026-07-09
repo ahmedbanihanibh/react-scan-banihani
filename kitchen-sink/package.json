@@ -1,0 +1,29 @@
+{
+  "name": "@react-scan/kitchen-sink",
+  "type": "module",
+  "private": true,
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "serve": "vp preview"
+  },
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-scan": "workspace:*",
+    "tailwindcss": "^4.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.4",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.13",
+    "typescript": "^6.0.3",
+    "vite": "^6.3.0"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@react-scan/website",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "presync": "cp ../scan/dist/auto.global.js ./public/auto.global.js",
+    "dev": "pnpm presync && next dev --turbopack",
+    "build": "pnpm --filter react-scan build && pnpm presync && next build --webpack",
+    "start": "next start",
+    "lint": "vp lint",
+    "format": "vp fmt"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
+    "highlight.js": "^11.11.1",
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-scan": "workspace:*",
+    "zod": "^4.4.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.4",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.13",
+    "postcss-load-config": "^6.0.1",
+    "tailwindcss": "^4.2.4"
+  }
+}

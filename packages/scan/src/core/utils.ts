@@ -1,0 +1,170 @@
+// @ts-nocheck
+import type { AggregatedRender, Render } from "./instrumentation";
+import { IS_CLIENT } from "~web/utils/constants";
+
+function descending(a: number, b: number): number {
+  return b - a;
+}
+
+interface ComponentData {
+  name: string;
+  forget: boolean;
+  time: number;
+}
+
+function getComponentGroupNames(group: ComponentData[]): string {
+  let result = group[0].name;
+
+  const len = group.length;
+  const max = Math.min(4, len);
+
+  for (let i = 1; i < max; i++) {
+    result += `, ${group[i].name}`;
+  }
+
+  return result;
+}
+
+function getComponentGroupTotalTime(group: ComponentData[]): number {
+  let result = group[0].time;
+
+  for (let i = 1, len = group.length; i < len; i++) {
+    result += group[i].time;
+  }
+
+  return result;
+}
+
+function componentGroupHasForget(group: ComponentData[]): boolean {
+  for (let i = 0, len = group.length; i < len; i++) {
+    if (group[i].forget) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export const getLabelText = (groupedAggregatedRenders: Array<AggregatedRender>) => {
+  let labelText = "";
+
+  const componentsByCount = new Map<
+    number,
+    Array<{ name: string; forget: boolean; time: number }>
+  >();
+
+  for (const aggregatedRender of groupedAggregatedRenders) {
+    const { forget, time, aggregatedCount, name } = aggregatedRender;
+    if (!componentsByCount.has(aggregatedCount)) {
+      componentsByCount.set(aggregatedCount, []);
+    }
+    const components = componentsByCount.get(aggregatedCount);
+    if (components) {
+      components.push({ name, forget, time: time ?? 0 });
+    }
+  }
+
+  const sortedCounts = Array.from(componentsByCount.keys()).sort(descending);
+
+  const parts: Array<string> = [];
+  let cumulativeTime = 0;
+  for (const count of sortedCounts) {
+    const componentGroup = componentsByCount.get(count);
+    if (!componentGroup) continue;
+
+    let text = getComponentGroupNames(componentGroup);
+    const totalTime = getComponentGroupTotalTime(componentGroup);
+    const hasForget = componentGroupHasForget(componentGroup);
+
+    cumulativeTime += totalTime;
+
+    if (componentGroup.length > 4) {
+      text += "…";
+    }
+
+    if (count > 1) {
+      text += ` × ${count}`;
+    }
+
+    if (hasForget) {
+      text = `✨${text}`;
+    }
+
+    parts.push(text);
+  }
+
+  labelText = parts.join(", ");
+
+  if (!labelText.length) return null;
+
+  if (labelText.length > 40) {
+    labelText = `${labelText.slice(0, 40)}…`;
+  }
+
+  if (cumulativeTime >= 0.01) {
+    labelText += ` (${Number(cumulativeTime.toFixed(2))}ms)`;
+  }
+
+  return labelText;
+};
+
+export interface RenderData {
+  count: number;
+  time: number;
+  renders: Array<Render>;
+  displayName: string | null;
+  type: unknown;
+  changes?: Array<RenderChange>;
+}
+
+export function isEqual(a: unknown, b: unknown): boolean {
+  return a === b || (a !== a && b !== b);
+}
+
+export const not_globally_unique_generateId = () => {
+  if (!IS_CLIENT) {
+    return "0";
+  }
+
+  // @ts-expect-error
+  if (window.reactScanIdCounter === undefined) {
+    // @ts-expect-error
+    window.reactScanIdCounter = 0;
+  }
+  // @ts-expect-error
+  return `${++window.reactScanIdCounter}`;
+};
+
+export const playNotificationSound = (audioContext: AudioContext) => {
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  const options = {
+    type: "sine" as OscillatorType,
+    freq: [
+      392,
+      //  523.25,
+      600,
+      //  659.25
+    ],
+    duration: 0.3,
+    gain: 0.12,
+  };
+
+  const frequencies = options.freq;
+  const timePerNote = options.duration / frequencies.length;
+
+  frequencies.forEach((freq, i) => {
+    oscillator.frequency.setValueAtTime(freq, audioContext.currentTime + i * timePerNote);
+  });
+
+  oscillator.type = options.type;
+  gainNode.gain.setValueAtTime(options.gain, audioContext.currentTime);
+
+  gainNode.gain.setTargetAtTime(0, audioContext.currentTime + options.duration * 0.7, 0.05);
+
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + options.duration);
+};

@@ -1,0 +1,43 @@
+{
+  "name": "@react-scan/extension",
+  "version": "0.5.7",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "vp build",
+    "dev": "pnpm dev:chrome",
+    "dev:chrome": "cross-env BROWSER=chrome vp dev",
+    "dev:firefox": "cross-env BROWSER=firefox vp dev",
+    "dev:brave": "cross-env BROWSER=brave vp dev",
+    "mkdir": "mkdir -p build",
+    "pack:chrome": "pnpm clean && pnpm build && pnpm mkdir && cd dist && zip -r \"../build/chrome-extension-v$npm_package_version.zip\" .",
+    "pack:firefox": "pnpm clean && BROWSER=firefox pnpm build && pnpm mkdir && cd dist && zip -r \"../build/firefox-extension-v$npm_package_version.zip\" .",
+    "pack:brave": "pnpm clean && BROWSER=brave pnpm build && pnpm mkdir && cd dist && zip -r \"../build/brave-extension-v$npm_package_version.zip\" .",
+    "pack:all": "rm -rf build && pnpm pack:chrome && pnpm pack:firefox && pnpm pack:brave",
+    "lint": "vp lint",
+    "format": "vp fmt",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bippy": "^0.5.39",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-scan": "workspace:*",
+    "zod": "^4.4.2"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.40",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/semver": "^7.7.1",
+    "@types/webextension-polyfill": "^0.12.5",
+    "@vitejs/plugin-react": "^6.0.1",
+    "cross-env": "^10.1.0",
+    "semver": "^7.7.4",
+    "vite": "^6.3.0",
+    "vite-plugin-web-extension": "^4.5.1",
+    "vite-tsconfig-paths": "^6.1.1",
+    "webextension-polyfill": "^0.12.0"
+  }
+}

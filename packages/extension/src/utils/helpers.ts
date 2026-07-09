@@ -1,0 +1,215 @@
+const isIframe = window !== window.top;
+const isPopup = window.opener !== null;
+export const canLoadReactScan = !isIframe && !isPopup;
+
+const IS_CLIENT = typeof window !== "undefined";
+
+export const isInternalUrl = (url: string): boolean => {
+  if (!url) return false;
+
+  const allowedProtocols = ["http:", "https:", "file:"];
+  return !allowedProtocols.includes(new URL(url).protocol);
+};
+
+interface ReactRootContainer {
+  _reactRootContainer?: {
+    _internalRoot?: {
+      current?: {
+        child: unknown;
+      };
+    };
+  };
+  __reactContainer$?: unknown;
+}
+
+const ReactDetection = {
+  limits: {
+    MAX_DEPTH: 10,
+    MAX_ELEMENTS: 30,
+    ELEMENTS_PER_LEVEL: 5,
+  },
+  nonVisualTags: new Set([
+    // Document level
+    "HTML",
+    "HEAD",
+    "META",
+    "TITLE",
+    "BASE",
+    // Scripts and styles
+    "SCRIPT",
+    "STYLE",
+    "LINK",
+    "NOSCRIPT",
+    // Media and embeds
+    "SOURCE",
+    "TRACK",
+    "EMBED",
+    "OBJECT",
+    "PARAM",
+    // Special elements
+    "TEMPLATE",
+    "PORTAL",
+    "SLOT",
+    // Others
+    "AREA",
+    "XML",
+    "DOCTYPE",
+    "COMMENT",
+  ]),
+  reactMarkers: {
+    root: "_reactRootContainer",
+    fiber: "__reactFiber",
+    instance: "__reactInternalInstance$",
+    container: "__reactContainer$",
+  },
+} as const;
+
+const childrenCache = new WeakMap<Element, Element[]>();
+
+export const hasReactFiber = (): boolean => {
+  const rootElement = document.body;
+  let elementsChecked = 0;
+
+  const getChildren = (element: Element): Element[] => {
+    let children = childrenCache.get(element);
+    if (!children) {
+      const childNodes = element.children;
+      children = [];
+      for (let i = 0; i < childNodes.length; i++) {
+        const child = childNodes[i];
+        if (!ReactDetection.nonVisualTags.has(child.tagName)) {
+          children.push(child);
+        }
+      }
+      childrenCache.set(element, children);
+    }
+    return children;
+  };
+
+  const checkElement = (element: Element, depth: number): boolean => {
+    if (elementsChecked >= ReactDetection.limits.MAX_ELEMENTS) return false;
+    elementsChecked++;
+
+    const props = Object.getOwnPropertyNames(element);
+
+    if (ReactDetection.reactMarkers.root in element) {
+      const elementWithRoot = element as unknown as ReactRootContainer;
+      const rootContainer = elementWithRoot._reactRootContainer;
+
+      const hasLegacyRoot = rootContainer?._internalRoot?.current?.child != null;
+      const hasContainerRoot = Object.keys(elementWithRoot).some((key) =>
+        key.startsWith(ReactDetection.reactMarkers.container),
+      );
+
+      return hasLegacyRoot || hasContainerRoot;
+    }
+
+    for (const key of props) {
+      if (
+        key.startsWith(ReactDetection.reactMarkers.fiber) ||
+        key.startsWith(ReactDetection.reactMarkers.instance)
+      ) {
+        return true;
+      }
+    }
+
+    if (depth < ReactDetection.limits.MAX_DEPTH) {
+      const children = getChildren(element);
+      const maxCheck = Math.min(children.length, ReactDetection.limits.ELEMENTS_PER_LEVEL);
+
+      for (let i = 0; i < maxCheck; i++) {
+        if (checkElement(children[i], depth + 1)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  };
+
+  return checkElement(rootElement, 0);
+};
+
+export const readLocalStorage = <T>(storageKey: string): T | null => {
+  if (!IS_CLIENT) return null;
+
+  try {
+    const stored = localStorage.getItem(storageKey);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const saveLocalStorage = <T>(storageKey: string, state: T): void => {
+  if (!IS_CLIENT) return;
+
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(state));
+  } catch {}
+};
+
+type EventCallback<T = unknown> = (data: T) => void;
+const eventBus = new Map<string, Set<EventCallback>>();
+
+export const busSubscribe = <T = unknown>(
+  event: string,
+  callback: EventCallback<T>,
+): (() => void) => {
+  if (!eventBus.has(event)) {
+    eventBus.set(event, new Set());
+  }
+  eventBus.get(event)!.add(callback as EventCallback);
+
+  return () => {
+    const callbacks = eventBus.get(event);
+    if (callbacks) {
+      callbacks.delete(callback as EventCallback);
+      if (callbacks.size === 0) {
+        eventBus.delete(event);
+      }
+    }
+  };
+};
+
+export const busDispatch = <T = unknown>(event: string, data: T): void => {
+  const callbacks = eventBus.get(event);
+  if (callbacks) {
+    callbacks.forEach((callback) => callback(data));
+  }
+};
+
+export const sleep = (ms: number): Promise<void> => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
+const isStorageRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+export const storageGetItem = async <T>(storageKey: string, key: string): Promise<T | null> => {
+  try {
+    const result = await chrome.storage.local.get(storageKey);
+    const data = result[storageKey];
+    if (!isStorageRecord(data)) return null;
+    const value = data[key];
+    return value === undefined ? null : (value as T);
+  } catch {
+    return null;
+  }
+};
+
+export const storageSetItem = async <T>(
+  storageKey: string,
+  key: string,
+  value: T,
+): Promise<void> => {
+  try {
+    const result = await chrome.storage.local.get(storageKey);
+    const data = result[storageKey];
+    const updatedData = {
+      ...(isStorageRecord(data) ? data : {}),
+      [key]: value,
+    };
+    await chrome.storage.local.set({ [storageKey]: updatedData });
+  } catch {}
+};
