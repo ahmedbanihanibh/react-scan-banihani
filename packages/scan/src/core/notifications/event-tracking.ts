@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "preact/compat";
+import { forwardSlowdownToBridge } from "~core/bridge";
 import { not_globally_unique_generateId } from "~core/utils";
 import { MAX_INTERACTION_BATCH, interactionStore } from "./interaction-store";
 import {
@@ -74,6 +75,7 @@ export const toolbarEventStore = createStore<ToolbarEventStoreState>()((set, get
 
     actions: {
       addEvent: (event: SlowdownEvent) => {
+        forwardSlowdownToBridge(event);
         listeners.forEach((listener) => listener(event));
 
         const events = [...get().state.events, event];

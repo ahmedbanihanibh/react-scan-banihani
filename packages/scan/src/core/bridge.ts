@@ -1,5 +1,3 @@
-import { toolbarEventStore } from "./notifications/event-tracking";
-
 /**
  * linear-grab bridge emitter — streams slowdown telemetry to the local
  * bridge (`npx linear-grab-bridge`), which appends it to the repo's
@@ -82,6 +80,10 @@ const changeNames = (changes: unknown): Array<string> => {
 /**
  * Start streaming. `target` is the bridge origin (default localhost bridge);
  * pass `false`-y to disable. Called from scan() init.
+ *
+ * IMPORTANT: this module must stay import-free (a leaf). It is imported from
+ * core/index AND from the notifications event store — any import back toward
+ * core creates a load-order cycle that crashes the IIFE bundle.
  */
 export const initBridgeEmitter = (
   target: string | boolean | undefined,
@@ -91,47 +93,51 @@ export const initBridgeEmitter = (
   endpoint = (
     typeof target === "string" ? target : "http://127.0.0.1:4577"
   ).replace(/\/$/, "");
+};
 
-  toolbarEventStore.getState().actions.addListener((event) => {
-    try {
-      if (event.kind === "interaction") {
-        const timing = event.data.meta.detailedTiming as unknown as {
-          interactionType?: string;
-          componentPath?: Array<string>;
-        };
-        pushBridgeEvent({
-          kind: "interaction",
-          type: timing.interactionType ?? "pointer",
-          target: timing.componentPath?.[0],
-          path: timing.componentPath?.slice(0, 5),
-          duration: event.data.meta.latency,
-          slow: event.data.meta.latency > 150,
-        });
-      } else {
-        const fiberRenders = event.data.meta.fiberRenders ?? {};
-        const components: Array<BridgeComponent> = Object.entries(fiberRenders)
-          .map(([name, fr]) => ({
-            name,
-            renders: fr.renderCount,
-            selfTime: fr.selfTime,
-            changes: changeNames(fr.changes),
-            memoizable:
-              !fr.wasFiberRenderMount &&
-              !fr.hasMemoCache &&
-              changeNames(fr.changes).length === 0,
-          }))
-          .sort((a, b) => b.selfTime - a.selfTime)
-          .slice(0, 15);
-        pushBridgeEvent({
-          kind: "long-render",
-          duration: event.data.meta.latency,
-          fps: event.data.meta.fps,
-          slow: true,
-          components,
-        });
-      }
-    } catch {
-      /* telemetry must never break the host page */
+/** Called by the toolbar event store on every slowdown event. */
+// biome-ignore lint/suspicious/noExplicitAny: shape owned by event-tracking; kept loose to stay a leaf
+export const forwardSlowdownToBridge = (event: any): void => {
+  if (!endpoint) return;
+  try {
+    if (event.kind === "interaction") {
+      const timing = event.data.meta.detailedTiming as unknown as {
+        interactionType?: string;
+        componentPath?: Array<string>;
+      };
+      pushBridgeEvent({
+        kind: "interaction",
+        type: timing.interactionType ?? "pointer",
+        target: timing.componentPath?.[0],
+        path: timing.componentPath?.slice(0, 5),
+        duration: event.data.meta.latency,
+        slow: event.data.meta.latency > 150,
+      });
+    } else {
+      const fiberRenders = event.data.meta.fiberRenders ?? {};
+      // biome-ignore lint/suspicious/noExplicitAny: see above
+      const components: Array<BridgeComponent> = Object.entries<any>(fiberRenders)
+        .map(([name, fr]) => ({
+          name,
+          renders: fr.renderCount,
+          selfTime: fr.selfTime,
+          changes: changeNames(fr.changes),
+          memoizable:
+            !fr.wasFiberRenderMount &&
+            !fr.hasMemoCache &&
+            changeNames(fr.changes).length === 0,
+        }))
+        .sort((a, b) => b.selfTime - a.selfTime)
+        .slice(0, 15);
+      pushBridgeEvent({
+        kind: "long-render",
+        duration: event.data.meta.latency,
+        fps: event.data.meta.fps,
+        slow: true,
+        components,
+      });
     }
-  });
+  } catch {
+    /* telemetry must never break the host page */
+  }
 };
