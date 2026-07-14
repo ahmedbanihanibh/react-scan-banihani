@@ -1,4 +1,5 @@
 import { Fiber, getDisplayName, getTimings, hasMemoCache, isHostFiber, traverseFiber } from "bippy";
+import { getFiberSource } from "../../lite/fiber-source";
 import { Store } from "../..";
 
 import { BoundedArray, invariantError } from "~core/notifications/performance-utils";
@@ -160,6 +161,9 @@ export type FiberRenders = Record<
     totalTime: number;
     hasMemoCache: boolean;
     wasFiberRenderMount: boolean;
+    /** file:line:col of the component definition (dev builds) — lets AI
+        agents jump straight to the offender. Cached per display name. */
+    source: string | null;
     nodeInfo: Array<{
       selfTime: number;
       element: Element;
@@ -823,6 +827,23 @@ const isPerformanceEventAvailable = () => {
   return "PerformanceEventTiming" in globalThis;
 };
 
+const fiberSourceCache = new Map<string, string | null>();
+const resolveFiberSource = (displayName: string, fiber: Fiber): string | null => {
+  const cached = fiberSourceCache.get(displayName);
+  if (cached !== undefined) return cached;
+  let formatted: string | null = null;
+  try {
+    const src = getFiberSource(fiber);
+    if (src?.fileName) {
+      formatted = `${src.fileName}:${src.lineNumber ?? 0}`.replace(/^.*?(?=(app|src|components|pages|lib)\/)/, "");
+    }
+  } catch {
+    /* dev-only info — never break tracking */
+  }
+  fiberSourceCache.set(displayName, formatted);
+  return formatted;
+};
+
 export const listenForRenders = (fiberRenders: InteractionStartStage["fiberRenders"]) => {
   const listener = (fiber: Fiber) => {
     const displayName = getDisplayName(fiber.type);
@@ -852,6 +873,7 @@ export const listenForRenders = (fiberRenders: InteractionStartStage["fiberRende
       };
       fiberRenders[displayName] = {
         renderCount: 1,
+        source: resolveFiberSource(displayName, fiber),
         hasMemoCache: hasMemoCache(fiber),
         wasFiberRenderMount: wasFiberRenderMount(fiber),
         parents: parents,
@@ -906,6 +928,7 @@ export const listenForRenders = (fiberRenders: InteractionStartStage["fiberRende
       ),
     };
 
+    existing.source ??= resolveFiberSource(displayName, fiber);
     existing.renderCount += 1;
     existing.selfTime += selfTime;
     existing.totalTime += totalTime;
