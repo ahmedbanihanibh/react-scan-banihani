@@ -1,4 +1,5 @@
 import { useState } from "preact/hooks";
+import { pushBridgeEvent } from "~core/bridge";
 import { cn } from "~web/utils/helpers";
 import { GroupedFiberRender, NotificationEvent, getComponentName, getTotalTime } from "./data";
 import { iife } from "~core/notifications/performance-utils";
@@ -479,6 +480,7 @@ export const Optimize = ({ selectedEvent }: { selectedEvent: NotificationEvent }
         onClick={async () => {
           const text = getLLMPrompt(activeTab, selectedEvent);
 
+          pushBridgeEvent({ kind: "prompt", surface: `optimize:${activeTab}`, text });
           await navigator.clipboard.writeText(text);
           setCopying(true);
           setTimeout(() => setCopying(false), 1000);

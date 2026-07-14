@@ -1,4 +1,5 @@
 import { type Signal, signal } from "@preact/signals";
+import { initBridgeEmitter } from "./bridge";
 import {
   type Fiber,
   detectReactBuildType,
@@ -51,6 +52,16 @@ const initRootContainer = (): RootContainer => {
 };
 
 export interface Options {
+  /**
+   * Stream slowdown telemetry to a local linear-grab bridge so AI coding
+   * agents can read it (.lineargrab/scan.ndjson + GET /scan/report).
+   * true/undefined = default localhost bridge; a string = custom origin;
+   * false = off. Fire-and-forget — a missing bridge never affects the page.
+   *
+   * @default true (dev builds only)
+   */
+  bridge?: boolean | string;
+
   /**
    * Enable/disable scanning
    *
@@ -548,6 +559,7 @@ const createNotificationsOutlineCanvas = () => {
 
 export const scan = (options: Options = {}) => {
   setOptions(options);
+  initBridgeEmitter(options.bridge);
   const isInIframe = Store.isInIframe.value;
 
   if (

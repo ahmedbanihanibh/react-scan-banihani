@@ -1,4 +1,5 @@
 import type { Fiber } from "bippy";
+import { pushBridgeEvent } from "~core/bridge";
 import { memo } from "preact/compat";
 import { useEffect, useState } from "preact/hooks";
 import { Icon } from "~web/components/icon";
@@ -41,6 +42,7 @@ export const CopyAiPromptButton = /* @__PURE__ */ memo(
         includeValues,
       });
 
+      pushBridgeEvent({ kind: "prompt", surface: "inspector:whats-changed", text: prompt });
       navigator.clipboard.writeText(prompt).then(
         () => setIsCopied(true),
         () => {},
